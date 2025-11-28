@@ -33,20 +33,34 @@ func NewIntegrationService(endpoint, accessKey, secretKey, bucketName string, us
 		bucketName: bucketName,
 	}
 
-	// Бакет создаём при инициализации, если его ещё нет
+	// Ждём готовности MinIO с ретраями, чтобы не падать при старте
+	const (
+		maxAttempts = 10
+		delay       = 3 * time.Second
+	)
+
 	ctx := context.Background()
-	exists, errBucketExists := minioClient.BucketExists(ctx, bucketName)
-	if errBucketExists != nil {
-		return nil, fmt.Errorf("failed to check bucket: %w", errBucketExists)
-	}
-	if !exists {
-		if err := minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
-			return nil, fmt.Errorf("failed to create bucket: %w", err)
+	var lastErr error
+
+	for i := 1; i <= maxAttempts; i++ {
+		exists, errBucketExists := minioClient.BucketExists(ctx, bucketName)
+		if errBucketExists == nil {
+			if !exists {
+				if err := minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
+					return nil, fmt.Errorf("failed to create bucket: %w", err)
+				}
+				log.Printf("Created bucket %q in MinIO\n", bucketName)
+			}
+			log.Printf("MinIO bucket %q is ready\n", bucketName)
+			return svc, nil
 		}
-		log.Printf("Created bucket %q in MinIO\n", bucketName)
+
+		lastErr = errBucketExists
+		log.Printf("MinIO not ready yet (attempt %d/%d): %v", i, maxAttempts, errBucketExists)
+		time.Sleep(delay)
 	}
 
-	return svc, nil
+	return nil, fmt.Errorf("failed to init MinIO after %d attempts: %w", maxAttempts, lastErr)
 }
 
 // SaveUsers сохраняет текущий список пользователей в MinIO в формате JSON.
