@@ -16,7 +16,6 @@ FROM alpine:3.20
 
 WORKDIR /app
 
-# Для логов и таймзоны по желанию
 RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /app/go-highload /app/go-highload
