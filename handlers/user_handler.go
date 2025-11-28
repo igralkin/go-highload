@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	//"github.com/igralkin/go-highload/models"
 	"github.com/igralkin/go-highload/services"
 	"github.com/igralkin/go-highload/utils"
 )
@@ -39,7 +38,7 @@ func (h *UserHandler) RegisterRoutes(r *mux.Router) {
 
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users := h.service.GetAll()
-	writeJSON(w, http.StatusOK, users)
+	utils.WriteJSON(w, http.StatusOK, users)
 }
 
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +54,7 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user)
+	utils.WriteJSON(w, http.StatusOK, user)
 }
 
 type createUserRequest struct {
@@ -71,9 +70,8 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := h.service.Create(req.Name, req.Email)
-	writeJSON(w, http.StatusCreated, user)
+	utils.WriteJSON(w, http.StatusCreated, user)
 
-	// Логирование и уведомление — через фоновые воркеры
 	h.auditLogger.Log("CREATE", user)
 	h.notificationService.Notify(services.Notification{
 		Type: services.NotificationUserCreated,
@@ -100,7 +98,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user)
+	utils.WriteJSON(w, http.StatusOK, user)
 
 	h.auditLogger.Log("UPDATE", user)
 	h.notificationService.Notify(services.Notification{
@@ -138,10 +136,4 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func parseID(raw string) (int, error) {
 	return strconv.Atoi(raw)
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
 }
