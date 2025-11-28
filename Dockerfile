@@ -1,5 +1,5 @@
 # ===== STAGE 1: build =====
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -16,9 +16,6 @@ COPY . .
 # Собираем бинарник
 RUN go build -o go-highload ./cmd/server
 
-# Если у тебя main.go лежит в корне (как сейчас), а не в cmd/server,
-# то вместо строки выше используй:
-# RUN go build -o go-highload .
 
 # ===== STAGE 2: minimal runtime =====
 FROM alpine:3.20
