@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Собираем бинарник
-RUN go build -o go-highload ./cmd/server
+RUN go build -o go-highload .
 
 
 # ===== STAGE 2: minimal runtime =====
