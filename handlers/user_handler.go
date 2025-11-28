@@ -6,15 +6,27 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	//"github.com/igralkin/go-highload/models"
 	"github.com/igralkin/go-highload/services"
+	"github.com/igralkin/go-highload/utils"
 )
 
 type UserHandler struct {
-	service *services.UserService
+	service             *services.UserService
+	auditLogger         *utils.AuditLogger
+	notificationService *services.NotificationService
 }
 
-func NewUserHandler(service *services.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(
+	service *services.UserService,
+	auditLogger *utils.AuditLogger,
+	notificationService *services.NotificationService,
+) *UserHandler {
+	return &UserHandler{
+		service:             service,
+		auditLogger:         auditLogger,
+		notificationService: notificationService,
+	}
 }
 
 func (h *UserHandler) RegisterRoutes(r *mux.Router) {
@@ -60,6 +72,13 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	user := h.service.Create(req.Name, req.Email)
 	writeJSON(w, http.StatusCreated, user)
+
+	// Логирование и уведомление — через фоновые воркеры
+	h.auditLogger.Log("CREATE", user)
+	h.notificationService.Notify(services.Notification{
+		Type: services.NotificationUserCreated,
+		User: user,
+	})
 }
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +101,12 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, user)
+
+	h.auditLogger.Log("UPDATE", user)
+	h.notificationService.Notify(services.Notification{
+		Type: services.NotificationUserUpdated,
+		User: user,
+	})
 }
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -91,12 +116,24 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := h.service.GetByID(id)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
 	if err := h.service.Delete(id); err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	h.auditLogger.Log("DELETE", user)
+	h.notificationService.Notify(services.Notification{
+		Type: services.NotificationUserDeleted,
+		User: user,
+	})
 }
 
 func parseID(raw string) (int, error) {
